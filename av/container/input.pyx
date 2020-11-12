@@ -1,4 +1,4 @@
-from libc.stdint cimport int64_t
+from libc.stdint cimport int32_t, int64_t, uint32_t
 from libc.stdlib cimport malloc, free
 
 from av.container.streams cimport StreamContainer
@@ -16,6 +16,26 @@ cdef close_input(InputContainer self):
         with nogil:
             lib.avformat_close_input(&self.ptr)
         self.input_was_opened = False
+
+
+cdef double get_ntp_time(void* priv_data):
+    cdef lib.RTSPState* rtsp_state = <lib.RTSPState*> priv_data
+    cdef lib.RTSPStream* rtsp_stream = rtsp_state->rtsp_streams[0]
+    cdef lib.RTPDemuxContext* rtp_demux_context = <lib.RTPDemuxContext*> rtsp_stream->transport_priv
+
+    # TODO Check this
+    if (rtp_demux_context->last_rtcp_ntp_time >> 32) < 2208988800:
+        return 0
+
+    cdef uint32_t seconds = ((rtp_demux_context->last_rtcp_ntp_time >> 32)  & 0xffffffff) - 2208988800
+    cdef uint32_t fraction = rtp_demux_context->last_rtcp_ntp_time & 0xffffffff
+    cdef double useconds = <double> fraction / 0xffffffff
+    cdef double last_ntp = seconds + useconds
+
+    cdef int32_t ts_diff = rtp_demux_context->timestamp - rtp_demux_context->last_rtcp_timestamp
+    cdef lib.AVRational time_base = rtp_demux_context->st.time_base
+
+    return last_ntp + (ts_diff * (time_base.num / <double> time_base.den))
 
 
 cdef class InputContainer(Container):
@@ -92,7 +112,7 @@ cdef class InputContainer(Container):
 
         Yields a series of :class:`.Packet` from the given set of :class:`.Stream`::
 
-            for packet in container.demux():
+            for (ntp_time, packet) in container.demux():
                 # Do something with `packet`, often:
                 for frame in packet.decode():
                     # Do something with `frame`.
@@ -152,7 +172,8 @@ cdef class InputContainer(Container):
                         packet._stream = self.streams[packet.struct.stream_index]
                         # Keep track of this so that remuxing is easier.
                         packet._time_base = packet._stream._stream.time_base
-                        yield packet
+                        ntp_time = get_ntp_time(self.ptr.priv_data)
+                        yield (ntp_time, packet)
 
             # Flush!
             for i in range(self.ptr.nb_streams):
@@ -160,7 +181,8 @@ cdef class InputContainer(Container):
                     packet = Packet()
                     packet._stream = self.streams[i]
                     packet._time_base = packet._stream._stream.time_base
-                    yield packet
+                    ntp_time = get_ntp_time(self.ptr.priv_data)
+                    yield (ntp_time, packet)
 
         finally:
             self.set_timeout(None)
@@ -169,9 +191,9 @@ cdef class InputContainer(Container):
     def decode(self, *args, **kwargs):
         """decode(streams=None, video=None, audio=None, subtitles=None, data=None)
 
-        Yields a series of :class:`.Frame` from the given set of streams::
+        Yields a series of float and :class:`.Frame` tuples from the given set of streams::
 
-            for frame in container.decode():
+            for ntp_time, frame in container.decode():
                 # Do something with `frame`.
 
         .. seealso:: :meth:`.StreamContainer.get` for the interpretation of
@@ -179,9 +201,9 @@ cdef class InputContainer(Container):
 
         """
         id(kwargs)  # Avoid Cython bug; see demux().
-        for packet in self.demux(*args, **kwargs):
+        for ntp_time, packet in self.demux(*args, **kwargs):
             for frame in packet.decode():
-                yield frame
+                yield ntp_time, frame
 
     def seek(self, offset, *, str whence='time', bint backward=True,
              bint any_frame=False, Stream stream=None,
