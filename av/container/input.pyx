@@ -42,7 +42,8 @@ cdef double get_ntp_time(void* priv_data):
     # NTP time in seconds since unix epoch
     cdef double last_ntp = seconds + useconds
     print 'LAST_NTP ', last_ntp
-
+    print 'TIMESTAMP ', rtp_demux_context.timestamp
+    print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
     cdef int32_t ts_diff = rtp_demux_context.timestamp - rtp_demux_context.last_rtcp_timestamp
     print 'TS_DEFF ', ts_diff
     cdef lib.AVRational time_base = rtp_demux_context.st.time_base
