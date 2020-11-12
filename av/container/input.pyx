@@ -25,7 +25,6 @@ cdef double get_ntp_time(void* priv_data):
 
     print 'TIMESTAMP ', rtp_demux_context.timestamp
     print 'BASE_TIMESTAMP ', rtp_demux_context.base_timestamp
-    print 'CUR_TIMESTAMP ', rtp_demux_context.cur_timestamp
     print 'LAST_RTCP_NTP_TIME ', rtp_demux_context.last_rtcp_ntp_time
     print 'FIRST_RTCP_NTP_TIME ', rtp_demux_context.first_rtcp_ntp_time
     print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
