@@ -28,6 +28,9 @@ cdef double get_ntp_time(void* priv_data):
     print 'LAST_RTCP_NTP_TIME ', rtp_demux_context.last_rtcp_ntp_time
     print 'FIRST_RTCP_NTP_TIME ', rtp_demux_context.first_rtcp_ntp_time
     print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
+    print 'UNWRAPPED_TIMESTAMP ', rtp_demux_context.unwrapped_timestamp
+    print 'RANGE_START_OFFSET ', rtp_demux_context.range_start_offset
+    print 'RTCP_TS_OFFSET ', rtp_demux_context.rtcp_ts_offset
     print 'TIME_BASE_NUM ', rtp_demux_context.st.time_base.num
     print 'TIME_BASE_DEN ', rtp_demux_context.st.time_base.den
     # The seconds are the highest 32 bits of the 64 bit ntp time
