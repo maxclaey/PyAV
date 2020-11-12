@@ -23,7 +23,12 @@ cdef double get_ntp_time(void* priv_data):
     cdef lib.RTSPStream* rtsp_stream = rtsp_state.rtsp_streams[0]
     cdef lib.RTPDemuxContext* rtp_demux_context = <lib.RTPDemuxContext*> rtsp_stream.transport_priv
 
+    print 'TIMESTAMP ', rtp_demux_context.timestamp
+    print 'BASE_TIMESTAMP ', rtp_demux_context.base_timestamp
+    print 'CUR_TIMESTAMP ', rtp_demux_context.cur_timestamp
     print 'LAST_RTCP_NTP_TIME ', rtp_demux_context.last_rtcp_ntp_time
+    print 'FIRST_RTCP_NTP_TIME ', rtp_demux_context.first_rtcp_ntp_time
+    print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
     # The seconds are the highest 32 bits of the 64 bit ntp time
     cdef uint32_t seconds = (rtp_demux_context.last_rtcp_ntp_time >> 32)  & 0xffffffff
     # NTP time are in seconds since 1/1/1900, convert to unix epoch 1/1/1970
@@ -42,8 +47,6 @@ cdef double get_ntp_time(void* priv_data):
     # NTP time in seconds since unix epoch
     cdef double last_ntp = seconds + useconds
     print 'LAST_NTP ', last_ntp
-    print 'TIMESTAMP ', rtp_demux_context.timestamp
-    print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
     cdef int32_t ts_diff = rtp_demux_context.timestamp - rtp_demux_context.last_rtcp_timestamp
     print 'TS_DEFF ', ts_diff
     cdef lib.AVRational time_base = rtp_demux_context.st.time_base
