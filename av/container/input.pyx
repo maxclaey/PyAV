@@ -23,17 +23,23 @@ cdef double get_ntp_time(void* priv_data):
     cdef lib.RTSPStream* rtsp_stream = rtsp_state->rtsp_streams[0]
     cdef lib.RTPDemuxContext* rtp_demux_context = <lib.RTPDemuxContext*> rtsp_stream->transport_priv
 
-    # TODO Check this
-    if (rtp_demux_context->last_rtcp_ntp_time >> 32) < 2208988800:
+    # The seconds are the highest 32 bits of the 64 bit ntp time
+    cdef uint32_t seconds = (rtp_demux_context->last_rtcp_ntp_time >> 32)  & 0xffffffff
+    # NTP time are in seconds since 1/1/1900, convert to unix epoch 1/1/1970
+    if seconds < 2208988800:
+        # Timestamp is invalid, as this is before 1970
         return 0
+    # Extract the seconds between the two epochs
+    seconds = seconds - 2208988800
 
-    cdef uint32_t seconds = ((rtp_demux_context->last_rtcp_ntp_time >> 32)  & 0xffffffff) - 2208988800
+    # The fraction is the lowest 32 bits of the 64 bit ntp time
     cdef uint32_t fraction = rtp_demux_context->last_rtcp_ntp_time & 0xffffffff
     cdef double useconds = <double> fraction / 0xffffffff
+    # NTP time in seconds since unix epoch
     cdef double last_ntp = seconds + useconds
 
     cdef int32_t ts_diff = rtp_demux_context->timestamp - rtp_demux_context->last_rtcp_timestamp
-    cdef lib.AVRational time_base = rtp_demux_context->st.time_base
+    cdef lib.AVRational time_base = rtp_demux_context->st->time_base
 
     return last_ntp + (ts_diff * (time_base.num / <double> time_base.den))
 
