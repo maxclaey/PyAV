@@ -1,4 +1,4 @@
-from libc.stdint cimport int32_t, int64_t, uint32_t
+from libc.stdint cimport int32_t, int64_t, uint32_t, uint64_t
 from libc.stdlib cimport malloc, free
 
 from av.container.streams cimport StreamContainer
@@ -18,42 +18,40 @@ cdef close_input(InputContainer self):
         self.input_was_opened = False
 
 
-cdef double get_ntp_time(void* priv_data):
+cdef uint32_t reconstruct_timestamp(lib.RTPDemuxContext* s, int64_t pts):
+    cdef int64_t addend = lib.av_rescale(s.last_rtcp_ntp_time - s.first_rtcp_ntp_time,
+                                         s.st.time_base.den,
+                                         <uint64_t> s.st.time_base.num << 32)
+    cdef uint32_t timestamp = pts - s.range_start_offset - s.rtcp_ts_offset - addend + s.last_rtcp_timestamp
+    return timestamp
+
+
+cdef double get_ntp_time(void* priv_data, int64_t pts):
     cdef lib.RTSPState* rtsp_state = <lib.RTSPState*> priv_data
     cdef lib.RTSPStream* rtsp_stream = rtsp_state.rtsp_streams[0]
     cdef lib.RTPDemuxContext* rtp_demux_context = <lib.RTPDemuxContext*> rtsp_stream.transport_priv
-
-    print 'TIMESTAMP ', rtp_demux_context.timestamp
-    print 'BASE_TIMESTAMP ', rtp_demux_context.base_timestamp
-    print 'LAST_RTCP_NTP_TIME ', rtp_demux_context.last_rtcp_ntp_time
-    print 'FIRST_RTCP_NTP_TIME ', rtp_demux_context.first_rtcp_ntp_time
-    print 'LAST_RTCP_TIMESTAMP ', rtp_demux_context.last_rtcp_timestamp
-    print 'UNWRAPPED_TIMESTAMP ', rtp_demux_context.unwrapped_timestamp
-    print 'RANGE_START_OFFSET ', rtp_demux_context.range_start_offset
-    print 'RTCP_TS_OFFSET ', rtp_demux_context.rtcp_ts_offset
-    print 'TIME_BASE_NUM ', rtp_demux_context.st.time_base.num
-    print 'TIME_BASE_DEN ', rtp_demux_context.st.time_base.den
     # The seconds are the highest 32 bits of the 64 bit ntp time
     cdef uint32_t seconds = (rtp_demux_context.last_rtcp_ntp_time >> 32)  & 0xffffffff
     # NTP time are in seconds since 1/1/1900, convert to unix epoch 1/1/1970
-    print 'SECONDS BEFORE ', seconds
     if seconds < 2208988800:
         # Timestamp is invalid, as this is before 1970
         return 0
     # Extract the seconds between the two epochs
     seconds = seconds - 2208988800
-    print 'SECONDS AFTER ', seconds
 
     # The fraction is the lowest 32 bits of the 64 bit ntp time
     cdef uint32_t fraction = rtp_demux_context.last_rtcp_ntp_time & 0xffffffff
-    print 'FRACTION ', fraction
     cdef double useconds = <double> fraction / 0xffffffff
     # NTP time in seconds since unix epoch
     cdef double last_ntp = seconds + useconds
-    print 'LAST_NTP ', last_ntp
-    cdef int32_t ts_diff = rtp_demux_context.timestamp - rtp_demux_context.last_rtcp_timestamp
-    print 'TS_DEFF ', ts_diff
+
+    cdef int64_t timestamp = rtp_demux_context.timestamp
+    # When RTP timestamp is not available, we try to reconstruct it from pts
+    if timestamp == 0:
+        timestamp = reconstruct_timestamp(rtp_demux_context, pts)
+
     cdef lib.AVRational time_base = rtp_demux_context.st.time_base
+    cdef int32_t ts_diff = timestamp - rtp_demux_context.last_rtcp_timestamp
 
     return last_ntp + (ts_diff * (time_base.num / <double> time_base.den))
 
@@ -192,7 +190,11 @@ cdef class InputContainer(Container):
                         packet._stream = self.streams[packet.struct.stream_index]
                         # Keep track of this so that remuxing is easier.
                         packet._time_base = packet._stream._stream.time_base
-                        ntp_time = get_ntp_time(self.ptr.priv_data)
+                        # When this is an RTSP stream try to extract the NTP time
+                        if str(self.ptr.iformat.name) == "rtsp":
+                            ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
+                        else:
+                            ntp_time = 0.0
                         yield (ntp_time, packet)
 
             # Flush!
@@ -201,7 +203,11 @@ cdef class InputContainer(Container):
                     packet = Packet()
                     packet._stream = self.streams[i]
                     packet._time_base = packet._stream._stream.time_base
-                    ntp_time = get_ntp_time(self.ptr.priv_data)
+                    # When this is an RTSP stream try to extract the NTP time
+                    if str(self.ptr.iformat.name) == "rtsp":
+                        ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
+                    else:
+                        ntp_time = 0.0
                     yield (ntp_time, packet)
 
         finally:
