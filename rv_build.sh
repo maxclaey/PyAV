@@ -9,14 +9,6 @@ if [ -z `which cibuildwheel` ]; then
     exit 1
 fi
 
-# =====================
-# Create a source build
-# =====================
-pip install cython
-python scripts/fetch-vendor /tmp/vendor
-PKG_CONFIG_PATH=/tmp/vendor/lib/pkgconfig make build
-python setup.py sdist
-
 # ===================
 # Create wheel builds
 # ===================
@@ -29,3 +21,11 @@ export CIBW_TEST_REQUIRES="numpy"
 
 # Build with cibuildwheel
 cibuildwheel --output-dir dist --platform linux
+
+# =====================
+# Create a source build
+# =====================
+pip install cython
+python scripts/fetch-vendor /tmp/vendor
+PKG_CONFIG_PATH=/tmp/vendor/lib/pkgconfig make build
+python setup.py sdist
