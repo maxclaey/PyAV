@@ -15,6 +15,9 @@ cdef class Packet(Buffer):
     cdef lib.AVRational _time_base
     cdef _rebase_time(self, lib.AVRational)
 
+    # We define the ntp timestamp
+    cdef double ntp_time
+
     # Hold onto the original reference.
     cdef ByteSource source
     cdef size_t _buffer_size(self)

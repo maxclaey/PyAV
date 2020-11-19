@@ -176,6 +176,18 @@ cdef class Packet(Buffer):
             else:
                 self.struct.dts = v
 
+    property ntp_time:
+        """
+        The server NTP timestamp in in seconds since unix epoch for this packet.
+
+        :type: double
+        """
+        def __get__(self):
+            return self.ntp_time
+
+        def __set__(self, v):
+            self.ntp_time = v
+
     property pos:
         """
         The byte position of this packet within the :class:`.Stream`.

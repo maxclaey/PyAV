@@ -96,6 +96,18 @@ cdef class Frame(object):
             else:
                 self.ptr.pts = value
 
+    property ntp_time:
+        """
+        The server NTP timestamp in in seconds since unix epoch for this frame.
+
+        :type: double
+        """
+        def __get__(self):
+            return self.ntp_time
+
+        def __set__(self, v):
+            self.ntp_time = v
+
     property time:
         """
         The presentation time in seconds for this frame.

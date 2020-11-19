@@ -130,7 +130,7 @@ cdef class InputContainer(Container):
 
         Yields a series of :class:`.Packet` from the given set of :class:`.Stream`::
 
-            for (ntp_time, packet) in container.demux():
+            for packet in container.demux():
                 # Do something with `packet`, often:
                 for frame in packet.decode():
                     # Do something with `frame`.
@@ -195,7 +195,8 @@ cdef class InputContainer(Container):
                             ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
                         else:
                             ntp_time = 0.0
-                        yield (ntp_time, packet)
+                        packet.ntp_time = ntp_time
+                        yield packet
 
             # Flush!
             for i in range(self.ptr.nb_streams):
@@ -208,7 +209,8 @@ cdef class InputContainer(Container):
                         ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
                     else:
                         ntp_time = 0.0
-                    yield (ntp_time, packet)
+                    packet.ntp_time = ntp_time
+                    yield packet
 
         finally:
             self.set_timeout(None)
@@ -219,7 +221,7 @@ cdef class InputContainer(Container):
 
         Yields a series of float and :class:`.Frame` tuples from the given set of streams::
 
-            for ntp_time, frame in container.decode():
+            for frame in container.decode():
                 # Do something with `frame`.
 
         .. seealso:: :meth:`.StreamContainer.get` for the interpretation of
@@ -227,9 +229,11 @@ cdef class InputContainer(Container):
 
         """
         id(kwargs)  # Avoid Cython bug; see demux().
-        for ntp_time, packet in self.demux(*args, **kwargs):
+        for packet in self.demux(*args, **kwargs):
             for frame in packet.decode():
-                yield ntp_time, frame
+                # Set NTP time from packet to frame
+                frame.ntp_time = packet.ntp_time
+                yield frame
 
     def seek(self, offset, *, str whence='time', bint backward=True,
              bint any_frame=False, Stream stream=None,
