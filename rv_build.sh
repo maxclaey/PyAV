@@ -9,6 +9,17 @@ if [ -z `which cibuildwheel` ]; then
     exit 1
 fi
 
+# =====================
+# Create a source build
+# =====================
+pip install cython
+python scripts/fetch-vendor /tmp/vendor
+PKG_CONFIG_PATH=/tmp/vendor/lib/pkgconfig make build
+python setup.py sdist
+
+# ===================
+# Create wheel builds
+# ===================
 # Set some environment variables from tests.yml, needed for Linux builds
 export CIBW_BEFORE_BUILD="pip install cython && python scripts/fetch-vendor /tmp/vendor"
 export CIBW_ENVIRONMENT_LINUX="LD_LIBRARY_PATH=/tmp/vendor/lib:/usr/local/lib:$LD_LIBRARY_PATH PKG_CONFIG_PATH=/tmp/vendor/lib/pkgconfig"
