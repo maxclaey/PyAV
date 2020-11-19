@@ -219,7 +219,7 @@ cdef class InputContainer(Container):
     def decode(self, *args, **kwargs):
         """decode(streams=None, video=None, audio=None, subtitles=None, data=None)
 
-        Yields a series of float and :class:`.Frame` tuples from the given set of streams::
+        Yields a series of :class:`.Frame` from the given set of streams::
 
             for frame in container.decode():
                 # Do something with `frame`.
