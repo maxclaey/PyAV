@@ -29,3 +29,4 @@ pip install cython
 python scripts/fetch-vendor /tmp/vendor
 PKG_CONFIG_PATH=/tmp/vendor/lib/pkgconfig make build
 python setup.py sdist
+rm -r /tmp/vendor
