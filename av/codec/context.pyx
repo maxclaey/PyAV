@@ -506,6 +506,8 @@ cdef class CodecContext(object):
         for frame in self._send_packet_and_recv(packet):
             if isinstance(frame, Frame):
                 self._setup_decoded_frame(frame, packet)
+                # Set NTP time from packet on frame
+                frame.ntp_time = packet.ntp_time
             res.append(frame)
         return res
 

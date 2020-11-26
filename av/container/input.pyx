@@ -204,12 +204,6 @@ cdef class InputContainer(Container):
                     packet = Packet()
                     packet._stream = self.streams[i]
                     packet._time_base = packet._stream._stream.time_base
-                    # When this is an RTSP stream try to extract the NTP time
-                    if str(self.ptr.iformat.name) == "rtsp":
-                        ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
-                    else:
-                        ntp_time = 0.0
-                    packet.ntp_time = ntp_time
                     yield packet
 
         finally:
@@ -231,8 +225,6 @@ cdef class InputContainer(Container):
         id(kwargs)  # Avoid Cython bug; see demux().
         for packet in self.demux(*args, **kwargs):
             for frame in packet.decode():
-                # Set NTP time from packet to frame
-                frame.ntp_time = packet.ntp_time
                 yield frame
 
     def seek(self, offset, *, str whence='time', bint backward=True,
