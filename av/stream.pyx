@@ -165,11 +165,7 @@ cdef class Stream(object):
 
         .. seealso:: This is mostly a passthrough to :meth:`.CodecContext.decode`.
         """
-        frames = self.codec_context.decode(packet)
-        # Set ntp_time from packet
-        for frame in frames:
-            frame.ntp_time = packet.ntp_time
-        return frames
+        return self.codec_context.decode(packet)
 
     @deprecation.method
     def seek(self, offset, **kwargs):
