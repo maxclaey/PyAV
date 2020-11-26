@@ -231,8 +231,6 @@ cdef class InputContainer(Container):
         id(kwargs)  # Avoid Cython bug; see demux().
         for packet in self.demux(*args, **kwargs):
             for frame in packet.decode():
-                # Set NTP time from packet to frame
-                frame.ntp_time = packet.ntp_time
                 yield frame
 
     def seek(self, offset, *, str whence='time', bint backward=True,
