@@ -191,7 +191,7 @@ cdef class InputContainer(Container):
                         # Keep track of this so that remuxing is easier.
                         packet._time_base = packet._stream._stream.time_base
                         # When this is an RTSP stream try to extract the NTP time
-                        if str(self.ptr.iformat.name) == "rtsp":
+                        if str(self.ptr.iformat.name) == "rtsp" and packet.pts is not None:
                             ntp_time = get_ntp_time(self.ptr.priv_data, packet.pts)
                         else:
                             ntp_time = 0.0
