@@ -26,10 +26,13 @@ cdef uint32_t reconstruct_timestamp(lib.RTPDemuxContext* s, int64_t pts):
     return timestamp
 
 
-cdef double get_ntp_time(void* priv_data, int64_t pts):
+cdef double get_ntp_time(void* priv_data, int64_t pts, lib.AVRational pts_time_base):
     cdef lib.RTSPState* rtsp_state = <lib.RTSPState*> priv_data
     cdef lib.RTSPStream* rtsp_stream = rtsp_state.rtsp_streams[0]
     cdef lib.RTPDemuxContext* rtp_demux_context = <lib.RTPDemuxContext*> rtsp_stream.transport_priv
+    cdef lib.AVRational time_base = rtp_demux_context.st.time_base
+    # Convert PTS from it's own time base to the demux time base
+    cdef int64_t pts_demux = lib.av_rescale_q(pts, pts_time_base, time_base)
     # The seconds are the highest 32 bits of the 64 bit ntp time
     cdef uint32_t seconds = (rtp_demux_context.last_rtcp_ntp_time >> 32)  & 0xffffffff
     # NTP time are in seconds since 1/1/1900, convert to unix epoch 1/1/1970
@@ -48,9 +51,8 @@ cdef double get_ntp_time(void* priv_data, int64_t pts):
     cdef int64_t timestamp = rtp_demux_context.timestamp
     # When RTP timestamp is not available, we try to reconstruct it from pts
     if timestamp == 0:
-        timestamp = reconstruct_timestamp(rtp_demux_context, pts)
+        timestamp = reconstruct_timestamp(rtp_demux_context, pts_demux)
 
-    cdef lib.AVRational time_base = rtp_demux_context.st.time_base
     cdef int32_t ts_diff = timestamp - rtp_demux_context.last_rtcp_timestamp
 
     return last_ntp + (ts_diff * (time_base.num / <double> time_base.den))
@@ -193,7 +195,7 @@ cdef class InputContainer(Container):
                         # When this is an RTSP stream try to extract the NTP time
                         if str(self.ptr.iformat.name) == "rtsp":
                             pts = packet.pts or 0  # Fallback if pts is not set
-                            ntp_time = get_ntp_time(self.ptr.priv_data, pts)
+                            ntp_time = get_ntp_time(self.ptr.priv_data, pts, packet._time_base)
                         else:
                             ntp_time = 0.0
                         packet.ntp_time = ntp_time
